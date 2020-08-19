@@ -11,6 +11,7 @@ import numpy as np
 #import matplotlib.patches as patches
 
 
+
 def load_classes(path):
     """
     Loads class labels at 'path'
@@ -20,6 +21,7 @@ def load_classes(path):
     return names
 
 
+
 def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
@@ -27,6 +29,7 @@ def weights_init_normal(m):
     elif classname.find("BatchNorm2d") != -1:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
+
 
 
 def compute_ap(recall, precision):
@@ -55,6 +58,7 @@ def compute_ap(recall, precision):
     # and sum (\Delta recall) * prec
     ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
     return ap
+
 
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
@@ -88,6 +92,8 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
+
+
 
 
 def bbox_iou_numpy(box1, box2):
@@ -124,11 +130,13 @@ def bbox_iou_numpy(box1, box2):
     return intersection / ua
 
 
+
+
 def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     """
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
-    Returns detections with shape:
+    Builds boxes for the remaining detections and returns them with shape:
         (x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
 
@@ -182,6 +190,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
             )
 
     return output
+
+
 
 
 def build_targets(
@@ -251,6 +261,7 @@ def build_targets(
                 nCorrect += 1
 
     return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls
+
 
 
 def to_categorical(y, num_classes):
