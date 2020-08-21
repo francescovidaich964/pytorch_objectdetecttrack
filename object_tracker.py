@@ -17,14 +17,20 @@ img_size=416
 conf_thres=0.8
 nms_thres=0.4
 
-# load model and put into eval mode
+# Load YOLOv3 object detection model. the image will be resized to 
+# a 416px square while maintaining its aspect ratio and padding the overflow. 
 model = Darknet(config_path, img_size=img_size)
 model.load_weights(weights_path)
-model.cuda()
 model.eval()
-
 classes = utils.load_classes(class_path)
-Tensor = torch.cuda.FloatTensor
+
+# If CUDA is available store the model in the GPU
+if torch.cuda.is_available():
+    model.cuda()
+    Tensor = torch.cuda.FloatTensor
+else:
+    Tensor = torch.FloatTensor
+
 
 def detect_image(img):
     # scale and pad image
@@ -46,7 +52,7 @@ def detect_image(img):
         detections = utils.non_max_suppression(detections, 80, conf_thres, nms_thres)
     return detections[0]
 
-videopath = '../data/video/overpass.mp4'
+videopath = '../data/video/full_MOT16-01.mp4'
 
 import cv2
 from sort import *
@@ -55,8 +61,14 @@ colors=[(255,0,0),(0,255,0),(0,0,255),(255,0,255),(128,0,0),(0,128,0),(0,0,128),
 vid = cv2.VideoCapture(videopath)
 mot_tracker = Sort() 
 
+print('\n\n IMAGE 1') 
+
 cv2.namedWindow('Stream',cv2.WINDOW_NORMAL)
+
+print('\n\n IMAGE 1') 
 cv2.resizeWindow('Stream', (800,600))
+
+print('\n\n IMAGE 2') 
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 ret,frame=vid.read()
@@ -68,6 +80,7 @@ outvideo = cv2.VideoWriter(videopath.replace(".mp4", "-det.mp4"),fourcc,20.0,(vw
 frames = 0
 starttime = time.time()
 while(True):
+
     ret, frame = vid.read()
     if not ret:
         break

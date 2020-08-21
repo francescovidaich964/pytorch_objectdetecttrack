@@ -20,6 +20,13 @@ from sort import *
 
 
 
+# Define path of the input and output video frames
+input_path  = '../InOut_data/MOT16/images/test/MOT16-01/img1/'
+output_path = '../InOut_data/results/'
+
+
+
+
 
 
 def detect_image(img, model, log=False):
@@ -62,7 +69,6 @@ def detect_image(img, model, log=False):
 
 
 
-
 ##########  DETECTION MODEL INITIALIZATION  ##########
 
 
@@ -94,31 +100,39 @@ else:
 
 
 
-# Define path of the input video and of the output images
-videopath = '../data/full_MOT16-01.mp4'
-results_path = 'results/det_image_'
+
+# Collect names of all images of the input video
+in_image_names = os.listdir(path=input_path)
+in_image_names.sort()
+
+# Get bounding-box colors (one for each type of object) 
+#cmap = plt.get_cmap('tab20b')
+#colors = [cmap(i) for i in np.linspace(0, 1, 20)]  (BETTER TO HAVE COLORS FROM DIFFERENT CMAPS)
+colors=[(255,0,0),(0,255,0),(0,0,255),(255,0,255),(128,0,0),
+        (0,128,0),(0,0,128),(128,0,128),(128,128,0),(0,128,128)]
 
 
-# Get bounding-box colors (one for each type of object)
-cmap = plt.get_cmap('tab20b')
-colors = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
-
-# Initialize Sort object and video capture of the input video
-vid = cv2.VideoCapture(videopath)
+# Initialize Sort object
 mot_tracker = Sort()
 
-# Analyze each image of the input video
-#while(True):
-for ii in range(40):
+
+# Analize each frame of the input video
+for img_name in in_image_names:
 
     # Take next frame of the video and get detections
-    ret, frame = vid.read()
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    pilimg = Image.fromarray(frame)
-    detections = detect_image(pilimg)
+    #ret, frame = vid.read()
+    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    #pilimg = Image.fromarray(frame)
+    pil_img = Image.open(input_path + img_name)
+    detections = detect_image(pil_img, model)
+
+    # Store the image in a plt figure    
+    img = np.array(pil_img)
+    plt.figure()
+    fig, ax = plt.subplots(1, figsize=(12,9))
+    ax.imshow(img)
 
     # Define the padding transformation from/to the original image size
-    img = np.array(pilimg)
     pad_x = max(img.shape[0] - img.shape[1], 0) * (img_size / max(img.shape))
     pad_y = max(img.shape[1] - img.shape[0], 0) * (img_size / max(img.shape))
     unpad_h = img_size - pad_y
@@ -131,22 +145,35 @@ for ii in range(40):
         # objects in the image, adding to each bounding box an object ID
         tracked_objects = mot_tracker.update(detections.cpu())
 
+        # Assign at random a color for each detected class
         unique_labels = detections[:, -1].cpu().unique()
         n_cls_preds = len(unique_labels)
+
+        # For each tracked object (charachterized by the obj_id returned from SORT), draw 
+        # the corresponding bounding box and write over it the detected class of the object
         for x1, y1, x2, y2, obj_id, cls_pred in tracked_objects:
-            box_h = int(((y2 - y1) / unpad_h) * img.shape[0])
-            box_w = int(((x2 - x1) / unpad_w) * img.shape[1])
-            y1 = int(((y1 - pad_y // 2) / unpad_h) * img.shape[0])
-            x1 = int(((x1 - pad_x // 2) / unpad_w) * img.shape[1])
+
+            box_h = ((y2 - y1) / unpad_h) * img.shape[0]
+            box_w = ((x2 - x1) / unpad_w) * img.shape[1]
+            y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
+            x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
 
             color = colors[int(obj_id) % len(colors)]
-            color = [i * 255 for i in color]
-            cls = classes[int(cls_pred)]
-            cv2.rectangle(frame, (x1, y1), (x1+box_w, y1+box_h), color, 4)
-            cv2.rectangle(frame, (x1, y1-35), (x1+len(cls)*19+60, y1), color, -1)
-            cv2.putText(frame, cls + "-" + str(int(obj_id)), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
+            color = [i / 255 for i in color]
+            class_name = classes[int(cls_pred)]
 
-    fig=plt.figure(figsize=(12, 8))
-    plt.title("Video Stream")
-    plt.imshow(frame)
-    plt.savefig(results_path+str(ii))
+            # OLD VERSION WITH OPEN-CV
+            #cv2.rectangle(frame, (x1, y1), (x1+box_w, y1+box_h), color, 4)
+            #cv2.rectangle(frame, (x1, y1-35), (x1+len(cls)*19+60, y1), color, -1)
+            #cv2.putText(frame, cls + "-" + str(int(obj_id)), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
+        
+            bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor='none')
+            ax.add_patch(bbox)
+            plt.text(x1, y1, s=class_name, color='white', verticalalignment='top',
+                     bbox={'color': color, 'pad': 0})
+
+
+    # Save the current frame with boxes
+    plt.axis('off')
+    img_out_name = output_path + img_name.replace(".jpg", "-det.jpg")
+    plt.savefig(img_out_name, bbox_inches='tight', pad_inches=0.0)

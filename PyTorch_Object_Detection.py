@@ -47,11 +47,11 @@ def detect_image(img, model, log=False):
         detections = model(input_img)
         detections = utils.non_max_suppression(detections, 80, conf_thres, nms_thres)
 
-        if detections[0] is None: 
-            num_of_detects = 0
-        else:
-            num_of_detects = len(detections[0])
-        print("\nFinal number of detected objetcs: ", num_of_detects)
+    if detections[0] is None: 
+        num_of_detects = 0
+    else:
+        num_of_detects = len(detections[0])
+    print("\nFinal number of detected objetcs: ", num_of_detects)
 
     return detections[0]
 
@@ -90,14 +90,12 @@ else:
 
 # Load the image that will be analyzed
 img_path = "images/venice.jpg"
-img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 # Perform object detection in the image and 
 # measure the time needed to complete the task
 prev_time = time.time()
-#img = Image.open(img_path)
-img = Image.fromarray(img)
-detections = detect_image(img, model)
+pil_img = Image.open(img_path)
+detections = detect_image(pil_img, model)
 inference_time = datetime.timedelta(seconds=time.time() - prev_time)
 print ('Inference Time: ', inference_time)
 
@@ -108,7 +106,7 @@ cmap = plt.get_cmap('tab20b')
 colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
 # Store the image in a plt figure
-img = np.array(img)
+img = np.array(pil_img)
 plt.figure()
 fig, ax = plt.subplots(1, figsize=(12,9))
 ax.imshow(img)

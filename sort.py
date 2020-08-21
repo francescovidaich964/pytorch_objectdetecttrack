@@ -25,7 +25,7 @@ import numpy as np
 from skimage import io
 
 #from sklearn.utils.linear_assignment_ import linear_assignment  <-  OLD
-from scipy.optimize import linear_sum_assignment as linear_assignment 
+from scipy.optimize import linear_sum_assignment
 import glob
 import time
 import argparse
@@ -134,29 +134,38 @@ class KalmanBoxTracker(object):
     """
     return convert_x_to_bbox(self.kf.x)
 
+
 def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
   Returns 3 lists of matches, unmatched_detections and unmatched_trackers
   """
+
   if(len(trackers)==0):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
+  
   iou_matrix = np.zeros((len(detections),len(trackers)),dtype=np.float32)
 
   for d,det in enumerate(detections):
     for t,trk in enumerate(trackers):
       iou_matrix[d,t] = iou(det,trk)
-  matched_indices = linear_assignment(-iou_matrix)
+  
+  #matched_indices = linear_assignment(-iou_matrix) (deprecated)
+  matched_indices = linear_sum_assignment(-iou_matrix)  
+  matched_indices = np.asarray(matched_indices)
+  matched_indices = np.transpose(matched_indices)
 
   unmatched_detections = []
   for d,det in enumerate(detections):
     if(d not in matched_indices[:,0]):
       unmatched_detections.append(d)
+  
   unmatched_trackers = []
   for t,trk in enumerate(trackers):
     if(t not in matched_indices[:,1]):
       unmatched_trackers.append(t)
+
 
   #filter out matched with low IOU
   matches = []
@@ -166,6 +175,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
       unmatched_trackers.append(m[1])
     else:
       matches.append(m.reshape(1,2))
+  
   if(len(matches)==0):
     matches = np.empty((0,2),dtype=int)
   else:
