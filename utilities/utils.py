@@ -7,8 +7,56 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
-#import matplotlib.pyplot as plt
-#import matplotlib.patches as patches
+from torchvision import datasets, transforms
+
+
+
+
+def detect_image(img, model_info, log=False):
+    """ 
+    Basic function that will return detections for a specified image. 
+    Note that it requires a Pillow image as input. The actual detection 
+    is in the last 4 lines.
+    """
+
+    # Extrack the information about the model contained in the list
+    model, img_size, conf_thres, nms_thres, Tensor = model_info
+
+    # Scale and pad image
+    ratio = min(img_size/img.size[0], img_size/img.size[1])
+    imw = round(img.size[0] * ratio)
+    imh = round(img.size[1] * ratio)
+    img_transforms = transforms.Compose([ transforms.Resize((imh, imw)),
+        transforms.Pad((max(int((imh-imw)/2),0), max(int((imw-imh)/2),0), max(int((imh-imw)/2),0), max(int((imw-imh)/2),0)),
+                       (128,128,128)),
+        transforms.ToTensor(),
+        ])
+
+    # Convert image to Tensor
+    image_tensor = img_transforms(img).float()
+    image_tensor = image_tensor.unsqueeze_(0)
+    input_img = Variable(image_tensor.type(Tensor))
+
+    # Run inference on the model and get detections (the model returns many detections, 
+    # which will be filtered by the 'non_max_suppression' function)
+    with torch.no_grad():
+        detections = model(input_img)
+        detections = non_max_suppression(detections, 80, conf_thres, nms_thres)
+
+        if log==True:
+            if detections[0] is None: 
+                num_of_detects = 0
+            else:
+                num_of_detects = len(detections[0])
+            print("\nFinal number of detected objetcs: ", num_of_detects)
+
+    return detections[0]
+
+
+
+
+
+#___________________________________________________________________________________
 
 
 

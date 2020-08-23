@@ -15,13 +15,12 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 from __future__ import print_function
 
 from numba import jit
 import os.path
 import numpy as np
-##import matplotlib.pyplot as plt
-##import matplotlib.patches as patches
 from skimage import io
 
 #from sklearn.utils.linear_assignment_ import linear_assignment  <-  OLD
@@ -31,7 +30,8 @@ import time
 import argparse
 from filterpy.kalman import KalmanFilter
 
-@jit
+
+@jit(forceobj=True)    # forceobj removes numba warnings
 def iou(bb_test,bb_gt):
   """
   Computes IUO between two bboxes in the form [x1,y1,x2,y2]

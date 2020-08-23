@@ -1,17 +1,14 @@
 
 import os, sys, time, datetime, random
 import torch
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
-from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from PIL import Image
 
-# Import modules defined in the 'utils' folder
-from utils import utils
+# Import modules defined in the 'utilities' folder
+from utilities import utils
 
 # Import the models defined in the homonym file
 import models
@@ -19,46 +16,13 @@ import models
 
 
 
-def detect_image(img, model, log=False):
-    """ 
-    Basic function that will return detections for a specified image. 
-    Note that it requires a Pillow image as input. The actual detection 
-    is in the last 4 lines.
-    """
-
-    # Scale and pad image
-    ratio = min(img_size/img.size[0], img_size/img.size[1])
-    imw = round(img.size[0] * ratio)
-    imh = round(img.size[1] * ratio)
-    img_transforms = transforms.Compose([ transforms.Resize((imh, imw)),
-        transforms.Pad((max(int((imh-imw)/2),0), max(int((imw-imh)/2),0), max(int((imh-imw)/2),0), max(int((imw-imh)/2),0)),
-                       (128,128,128)),
-        transforms.ToTensor(),
-        ])
-
-    # Convert image to Tensor
-    image_tensor = img_transforms(img).float()
-    image_tensor = image_tensor.unsqueeze_(0)
-    input_img = Variable(image_tensor.type(Tensor))
-
-    # Run inference on the model and get detections (the model returns many detections, 
-    # which will be filtered by the 'non_max_suppression' function)
-    with torch.no_grad():
-        detections = model(input_img)
-        detections = utils.non_max_suppression(detections, 80, conf_thres, nms_thres)
-
-    if detections[0] is None: 
-        num_of_detects = 0
-    else:
-        num_of_detects = len(detections[0])
-    print("\nFinal number of detected objetcs: ", num_of_detects)
-
-    return detections[0]
+# Load the image that will be analyzed
+img_path = "images/venice.jpg"
 
 
-#_________________________________________________________________________
 
 
+################## DETECTION MODEL INITIALIZATION ##################
 
 # Define paths to the YOLOv3 trained model 
 # (Check on YOLO theory what are image size, confidence 
@@ -67,7 +31,7 @@ config_path = 'config/yolov3.cfg'
 weights_path = 'config/yolov3.weights'
 class_path = 'config/coco.names'
 img_size = 416
-conf_thres = 0.5   # 0.8
+conf_thres = 0.6   # 0.8
 nms_thres = 0.4    # 0.4
 
 # Load YOLOv3 object detection model. the image will be resized to 
@@ -84,20 +48,20 @@ if torch.cuda.is_available():
 else:
     Tensor = torch.FloatTensor
 
+# Pack all these information in a single list
+model_info = [model, img_size, conf_thres, nms_thres, Tensor]
+
+####################################################################
 
 
-
-
-# Load the image that will be analyzed
-img_path = "images/venice.jpg"
 
 # Perform object detection in the image and 
 # measure the time needed to complete the task
 prev_time = time.time()
 pil_img = Image.open(img_path)
-detections = detect_image(pil_img, model)
+detections = utils.detect_image(pil_img, model_info)
 inference_time = datetime.timedelta(seconds=time.time() - prev_time)
-print ('Inference Time: ', inference_time)
+print ('\nInference Time: ', inference_time)
 
 
 
