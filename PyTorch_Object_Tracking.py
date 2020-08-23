@@ -7,6 +7,7 @@ from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.animation as anim 
 import numpy as np
 from PIL import Image
 import cv2
@@ -18,11 +19,15 @@ from utils import utils
 import models
 from sort import *
 
+import imageio
+from tqdm import tqdm
+
 
 
 # Define path of the input and output video frames
-input_path  = '../InOut_data/MOT16/images/test/MOT16-01/img1/'
-output_path = '../InOut_data/results/'
+#input_path  = '../InOut_data/MOT16/images/train/MOT16-04/img1/'
+input_path  = '../InOut_data/data_test/'
+output_video_path = '../InOut_data/FFMpegWriter_test.mp4'
 
 
 
@@ -115,65 +120,74 @@ colors=[(255,0,0),(0,255,0),(0,0,255),(255,0,255),(128,0,0),
 # Initialize Sort object
 mot_tracker = Sort()
 
-
-# Analize each frame of the input video
-for img_name in in_image_names:
-
-    # Take next frame of the video and get detections
-    #ret, frame = vid.read()
-    #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    #pilimg = Image.fromarray(frame)
-    pil_img = Image.open(input_path + img_name)
-    detections = detect_image(pil_img, model)
-
-    # Store the image in a plt figure    
-    img = np.array(pil_img)
-    plt.figure()
-    fig, ax = plt.subplots(1, figsize=(12,9))
-    ax.imshow(img)
-
-    # Define the padding transformation from/to the original image size
-    pad_x = max(img.shape[0] - img.shape[1], 0) * (img_size / max(img.shape))
-    pad_y = max(img.shape[1] - img.shape[0], 0) * (img_size / max(img.shape))
-    unpad_h = img_size - pad_y
-    unpad_w = img_size - pad_x
-
-    # Draw over the image the boxes (if any) obtained from the 'detect_image' function
-    if detections is not None:
-
-        # 'update' function of SORT object returns references to the detected 
-        # objects in the image, adding to each bounding box an object ID
-        tracked_objects = mot_tracker.update(detections.cpu())
-
-        # Assign at random a color for each detected class
-        unique_labels = detections[:, -1].cpu().unique()
-        n_cls_preds = len(unique_labels)
-
-        # For each tracked object (charachterized by the obj_id returned from SORT), draw 
-        # the corresponding bounding box and write over it the detected class of the object
-        for x1, y1, x2, y2, obj_id, cls_pred in tracked_objects:
-
-            box_h = ((y2 - y1) / unpad_h) * img.shape[0]
-            box_w = ((x2 - x1) / unpad_w) * img.shape[1]
-            y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
-            x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
-
-            color = colors[int(obj_id) % len(colors)]
-            color = [i / 255 for i in color]
-            class_name = classes[int(cls_pred)]
-
-            # OLD VERSION WITH OPEN-CV
-            #cv2.rectangle(frame, (x1, y1), (x1+box_w, y1+box_h), color, 4)
-            #cv2.rectangle(frame, (x1, y1-35), (x1+len(cls)*19+60, y1), color, -1)
-            #cv2.putText(frame, cls + "-" + str(int(obj_id)), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
-        
-            bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor='none')
-            ax.add_patch(bbox)
-            plt.text(x1, y1, s=class_name, color='white', verticalalignment='top',
-                     bbox={'color': color, 'pad': 0})
+# Initialize the writer which will convert the frames into the video
+writer = anim.FFMpegWriter(fps=25, codec='mpeg4', bitrate=2000) 
+plt.figure() 
+fig, ax = plt.subplots(1, figsize=(12,9))
 
 
-    # Save the current frame with boxes
-    plt.axis('off')
-    img_out_name = output_path + img_name.replace(".jpg", "-det.jpg")
-    plt.savefig(img_out_name, bbox_inches='tight', pad_inches=0.0)
+with writer.saving(fig, output_video_path, dpi=100): 
+    # Analize each frame of the input video
+    for img_name in tqdm(in_image_names):
+
+        # Take next frame of the video and get detections
+        #ret, frame = vid.read()
+        #frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        #pilimg = Image.fromarray(frame)
+        pil_img = Image.open(input_path + img_name)
+        detections = detect_image(pil_img, model)
+
+        # Store the image in a plt figure    
+        img = np.array(pil_img)
+        #plt.figure()
+        #fig, ax = plt.subplots(1, figsize=(12,9))
+        ax.imshow(img)
+
+        # Define the padding transformation from/to the original image size
+        pad_x = max(img.shape[0] - img.shape[1], 0) * (img_size / max(img.shape))
+        pad_y = max(img.shape[1] - img.shape[0], 0) * (img_size / max(img.shape))
+        unpad_h = img_size - pad_y
+        unpad_w = img_size - pad_x
+
+        # Draw over the image the boxes (if any) obtained from the 'detect_image' function
+        if detections is not None:
+
+            # 'update' function of SORT object returns references to the detected 
+            # objects in the image, adding to each bounding box an object ID
+            tracked_objects = mot_tracker.update(detections.cpu())
+
+            # Assign at random a color for each detected class
+            unique_labels = detections[:, -1].cpu().unique()
+            n_cls_preds = len(unique_labels)
+
+            # For each tracked object (charachterized by the obj_id returned from SORT), draw 
+            # the corresponding bounding box and write over it the detected class of the object
+            for x1, y1, x2, y2, obj_id, cls_pred in tracked_objects:
+
+                box_h = ((y2 - y1) / unpad_h) * img.shape[0]
+                box_w = ((x2 - x1) / unpad_w) * img.shape[1]
+                y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
+                x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
+
+                color = colors[int(obj_id) % len(colors)]
+                color = [i / 255 for i in color]
+                class_name = classes[int(cls_pred)]
+
+                # OLD VERSION WITH OPEN-CV
+                #cv2.rectangle(frame, (x1, y1), (x1+box_w, y1+box_h), color, 4)
+                #cv2.rectangle(frame, (x1, y1-35), (x1+len(cls)*19+60, y1), color, -1)
+                #cv2.putText(frame, cls + "-" + str(int(obj_id)), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 3)
+            
+                bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor='none')
+                ax.add_patch(bbox)
+                plt.text(x1, y1, s=class_name, color='white', verticalalignment='top',
+                         bbox={'color': color, 'pad': 0})
+
+
+        # Save the current frame with boxes
+        plt.axis('off')
+        fig.tight_layout()
+        writer.grab_frame() 
+        plt.cla()
+        #img_out_name = output_path + img_name.replace(".jpg", "-det.jpg")
+        #plt.savefig(img_out_name, bbox_inches='tight', pad_inches=0.0)
