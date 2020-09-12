@@ -85,20 +85,27 @@ writer = anim.FFMpegWriter(fps=25, codec='mpeg4', bitrate=5000)
 plt.figure() 
 fig, ax = plt.subplots(1, figsize=(12.8,7.2), dpi=100)
 
+# open a (new) file to write the results (used to measure performance)
+outF = open("output_boxes.txt", "w")
 
 
 
 # Open the stream to the output video, which will be built frame by frame
 with writer.saving(fig, output_video_path, dpi=100): 
     
+    frame_number = 0
+
     # Analize each frame of the input video
     for img_name in tqdm(in_image_names):
+
+        frame_number += 1
 
         # Take next frame of the video and get detections
         pil_img = Image.open(input_path + img_name)
         detections = utils.detect_image(pil_img, model_info)
+        print(detections)
 
-        # Store the image in a plt figure    
+        # Store the image in a plt figure
         img = np.array(pil_img)
         ax.imshow(img)
 
@@ -114,10 +121,11 @@ with writer.saving(fig, output_video_path, dpi=100):
             # 'update' function of SORT object returns references to the detected 
             # objects in the image, adding to each bounding box an object ID
             tracked_objects = mot_tracker.update(detections.cpu())
+            print(tracked_objects)
 
             # Assign a color for each detected object
-            unique_labels = detections[:, -1].cpu().unique()
-            n_cls_preds = len(unique_labels)
+            #unique_labels = detections[:, -1].cpu().unique()
+            #n_cls_preds = len(unique_labels)
 
             # For each tracked object (charachterized by the obj_id returned from SORT), draw 
             # the corresponding bounding box and write over it the detected class of the object
@@ -137,6 +145,11 @@ with writer.saving(fig, output_video_path, dpi=100):
                 plt.text(x1, y1, s=class_name, color='white', verticalalignment='top',
                          bbox={'color': color, 'pad': 0})
 
+                # Print results to the file
+                line_results = ",".join([str(int(frame_number)),str(int(obj_id)),str(int(x1)),
+                                         str(int(y1)),str(int(box_w)),str(int(box_h)),"1,1,1"])
+                outF.write(line_results + "\n")
+
 
         # Save the current frame with boxes inside the video
         plt.axis('off')
@@ -145,3 +158,7 @@ with writer.saving(fig, output_video_path, dpi=100):
         plt.cla()   # clear axis
         #img_out_name = output_path + img_name.replace(".jpg", "-det.jpg")
         #plt.savefig(img_out_name, bbox_inches='tight', pad_inches=0.0)
+
+
+# Close file storing the detected boxes
+outF.close()
